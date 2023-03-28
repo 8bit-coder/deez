@@ -1,14 +1,14 @@
-#Download Alpaca-native model and convert .bin files into a .pth file
+#Convert hf to pth
 import os
 import json
 
 import torch
-from transformers import LLaMATokenizer, LLaMAForCausalLM
+from transformers import LlamaTokenizer, LlamaForCausalLM
 
-tokenizer = LLaMATokenizer.from_pretrained("decapoda-research/llama-7b-hf")
+tokenizer = LlamaTokenizer.from_pretrained("./llama-13b-hf")
 
-base_model = LLaMAForCausalLM.from_pretrained(
-    "chavinlo/alpaca-native",
+base_model = LlamaForCausalLM.from_pretrained(
+    "output",
     load_in_8bit=False,
     torch_dtype=torch.float16,
     device_map={"": "cpu"},
@@ -95,3 +95,15 @@ torch.save(new_state_dict, "consolidated.00.pth")
 
 with open("params.json", "w") as f:
     json.dump(params, f)
+
+#Resize tensors
+model = torch.load("consolidated.00.pth", map_location=torch.device('cpu'))
+x = model["tok_embeddings.weight"]
+y = model["output.weight"]
+row_exclude = 32000
+x = x[:row_exclude]
+y = y[:row_exclude]
+model["tok_embeddings.weight"] = x
+model["output.weight"] = y
+torch.save(model, "consolidated.01.pth")
+#Delete consolidated.00.pth and rename consolidated.01.pth into consolidated.00.pth
